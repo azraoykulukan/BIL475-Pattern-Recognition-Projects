@@ -5,7 +5,7 @@ Bu depo, BIL475 Örüntü Tanıma dersi kapsamında gerçekleştirilen iki ana �
 ## 👥 Ekip Üyeleri
 * **Üye 1:** Azra Öykü Ulukan
 * **Üye 2:** Begüm Karabaş
-* **Üye 3:** Emre Veriş
+* **Üye 3:** Emre Eriş
 
 ---
 
