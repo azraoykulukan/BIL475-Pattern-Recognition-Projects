@@ -9,13 +9,10 @@ import matplotlib.pyplot as plt
 
 from .preprocessing import smape
 from .cv_utils import pick_random_1k
-
+import os
 
 def get_xgb_regressor(random_state: int):
-    """
-    XGBoost varsa onu kullanır.
-    Yoksa GradientBoostingRegressor'a düşer.
-    """
+
     try:
         from xgboost import XGBRegressor
         return XGBRegressor(
@@ -33,14 +30,8 @@ def get_xgb_regressor(random_state: int):
 
 
 def run_regression_cv(X, y, k_folds: int, random_state: int):
-    """
-    Models:
-      - ANN (MLPRegressor) + scaler
-      - XGBoostRegressor (or fallback)
+    best_by_model = {}
 
-    Returns:
-      reg_summary_df, reg_folds_df, best_dict(for x=y plot)
-    """
     kf = KFold(n_splits=k_folds, shuffle=True, random_state=random_state)
 
     xgb, xgb_name = get_xgb_regressor(random_state)
@@ -92,7 +83,13 @@ def run_regression_cv(X, y, k_folds: int, random_state: int):
             })
 
             if mae < best["mae"]:
-                best = {"model": model_name, "fold": fold, "mae": mae, "y_true": yte, "y_pred": pred}
+                if model_name not in best_by_model or mae < best_by_model[model_name]["mae"]:
+                    best_by_model[model_name] = {
+                        "mae": mae,
+                        "y_true": yte,
+                        "y_pred": pred,
+                        "fold": fold
+    }
 
         summary_rows.append({
             "Task": "Regression",
@@ -101,42 +98,48 @@ def run_regression_cv(X, y, k_folds: int, random_state: int):
             "SMAPE_mean": float(np.mean(smapes)),"SMAPE_std": float(np.std(smapes)),
         })
 
-    return pd.DataFrame(summary_rows), pd.DataFrame(fold_rows), best
+    return (
+        pd.DataFrame(summary_rows),
+        pd.DataFrame(fold_rows),
+        best,
+        best_by_model
+    )
 
 
-def save_xy_plot(best: dict, out_path: str, random_state: int, sample_n: int = 1000):
-    y_true = np.asarray(best["y_true"]).reshape(-1)
-    y_pred = np.asarray(best["y_pred"]).reshape(-1)
 
-    y_true, y_pred = pick_random_1k(y_true, y_pred, seed=random_state, sample_n=sample_n)
+def save_xy_plots_per_model(best_by_model: dict, out_dir: str, random_state: int, sample_n: int = 1000):
 
-    mn = float(min(y_true.min(), y_pred.min()))
-    mx = float(max(y_true.max(), y_pred.max()))
+    os.makedirs(out_dir, exist_ok=True)
 
-    fig, ax = plt.subplots()
-    ax.scatter(y_true, y_pred, s=10, alpha=0.6)
-    ax.plot([mn, mx], [mn, mx], linewidth=2)
-    ax.set_title(f"x=y Plot | {best['model']} | fold={best['fold']}")
-    ax.set_xlabel("True (y)")
-    ax.set_ylabel("Predicted (ŷ)")
-    fig.tight_layout()
-    fig.savefig(out_path, dpi=160)
-    plt.close(fig)
+    all_true, all_pred = [], []
+    for v in best_by_model.values():
+        all_true.append(v["y_true"])
+        all_pred.append(v["y_pred"])
 
+    all_true = np.concatenate(all_true)
+    all_pred = np.concatenate(all_pred)
 
-def save_residual_plot(best: dict, out_path: str, random_state: int, sample_n: int = 1000):
-    y_true = np.asarray(best["y_true"]).reshape(-1)
-    y_pred = np.asarray(best["y_pred"]).reshape(-1)
+    all_true, all_pred = pick_random_1k(all_true, all_pred, seed=random_state, sample_n=sample_n)
 
-    y_true, y_pred = pick_random_1k(y_true, y_pred, seed=random_state, sample_n=sample_n)
-    resid = y_true - y_pred
+    mn = float(min(all_true.min(), all_pred.min()))
+    mx = float(max(all_true.max(), all_pred.max()))
 
-    fig, ax = plt.subplots()
-    ax.scatter(y_true, resid, s=10, alpha=0.6)
-    ax.axhline(0, linewidth=2)
-    ax.set_title("Residual Plot (y - ŷ)")
-    ax.set_xlabel("True (y)")
-    ax.set_ylabel("Residual")
-    fig.tight_layout()
-    fig.savefig(out_path, dpi=160)
-    plt.close(fig)
+    for model_name, info in best_by_model.items():
+        y_true, y_pred = pick_random_1k(
+            info["y_true"], info["y_pred"],
+            seed=random_state, sample_n=sample_n
+        )
+
+        fig, ax = plt.subplots()
+        ax.scatter(y_true, y_pred, s=10, alpha=0.6)
+        ax.plot([mn, mx], [mn, mx], linewidth=2)
+        ax.set_xlim(mn, mx)
+        ax.set_ylim(mn, mx)
+        ax.set_title(f"x=y Plot | {model_name} | fold={info['fold']}")
+        ax.set_xlabel("True (y)")
+        ax.set_ylabel("Predicted (ŷ)")
+        fig.tight_layout()
+
+        fname = model_name.replace(" ", "_").replace("(", "").replace(")", "")
+        fig.savefig(os.path.join(out_dir, f"xy_{fname}.png"), dpi=160)
+        plt.close(fig)
