@@ -8,19 +8,14 @@ from sklearn.metrics import accuracy_score, f1_score, confusion_matrix, Confusio
 from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
 import matplotlib.pyplot as plt
-
+import os
 from .preprocessing import ensure_class_labels
 
 
 def run_classification_cv(X, y, k_folds: int, random_state: int):
-    """
-    Models:
-      - SVM (RBF) + scaler
-      - kNN (k=5) + scaler
+    
+    best_by_model = {}
 
-    Returns:
-      cls_summary_df, cls_folds_df, best_dict(for confusion matrix)
-    """
     y = ensure_class_labels(y)
 
     skf = StratifiedKFold(n_splits=k_folds, shuffle=True, random_state=random_state)
@@ -68,7 +63,14 @@ def run_classification_cv(X, y, k_folds: int, random_state: int):
             })
 
             if f1 > best["f1"]:
-                best = {"model": model_name, "fold": fold, "f1": f1, "y_true": yte, "y_pred": pred}
+                if model_name not in best_by_model or f1 > best_by_model[model_name]["f1"]:
+                    best_by_model[model_name] = {
+                        "f1": f1,
+                        "y_true": yte,
+                        "y_pred": pred,
+                        "fold": fold
+    }
+
 
         summary_rows.append({
             "Task": "Classification",
@@ -77,16 +79,27 @@ def run_classification_cv(X, y, k_folds: int, random_state: int):
             "F1_mean": float(np.mean(f1s)),  "F1_std": float(np.std(f1s)),
         })
 
-    return pd.DataFrame(summary_rows), pd.DataFrame(fold_rows), best
+    return (
+        pd.DataFrame(summary_rows),
+        pd.DataFrame(fold_rows),
+        best,
+        best_by_model
+    )
 
 
-def save_confusion_matrix(best: dict, out_path: str):
-    cm = confusion_matrix(best["y_true"], best["y_pred"])
-    disp = ConfusionMatrixDisplay(confusion_matrix=cm)
+def save_confusion_matrices_per_model(best_by_model: dict, out_dir: str):
 
-    fig, ax = plt.subplots()
-    disp.plot(ax=ax, values_format="d")
-    ax.set_title(f"Confusion Matrix | {best['model']} | fold={best['fold']}")
-    fig.tight_layout()
-    fig.savefig(out_path, dpi=160)
-    plt.close(fig)
+    os.makedirs(out_dir, exist_ok=True)
+
+    for model_name, info in best_by_model.items():
+        cm = confusion_matrix(info["y_true"], info["y_pred"])
+        disp = ConfusionMatrixDisplay(confusion_matrix=cm)
+
+        fig, ax = plt.subplots()
+        disp.plot(ax=ax, values_format="d")
+        ax.set_title(f"Confusion Matrix | {model_name} | fold={info['fold']}")
+        fig.tight_layout()
+
+        fname = model_name.replace(" ", "_").replace("(", "").replace(")", "")
+        fig.savefig(os.path.join(out_dir, f"cm_{fname}.png"), dpi=160)
+        plt.close(fig)
