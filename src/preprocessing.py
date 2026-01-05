@@ -2,9 +2,7 @@ import numpy as np
 
 
 def ensure_class_labels(y, max_classes: int = 20):
-    """
-    Sınıflandırma için y'yi güvenli şekilde int label'a çevirir.
-    """
+
     y = np.asarray(y).reshape(-1)
     uniq = np.unique(y)
 
@@ -25,9 +23,7 @@ def ensure_class_labels(y, max_classes: int = 20):
 
 
 def smape(y_true, y_pred, eps: float = 1e-8) -> float:
-    """
-    SMAPE (%) = mean( 2*|y-ŷ| / (|y|+|ŷ|) ) * 100
-    """
+
     y_true = np.asarray(y_true).reshape(-1)
     y_pred = np.asarray(y_pred).reshape(-1)
     denom = np.abs(y_true) + np.abs(y_pred) + eps
