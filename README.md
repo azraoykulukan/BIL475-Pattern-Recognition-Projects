@@ -1,6 +1,6 @@
 # BIL475-Pattern-Recognition-Projects
 
-Bu depo, BIL475 Örüntü Tanıma dersi kapsamında gerçekleştirilen iki ana çalışmayı içermektedir. Proje; **Sınıflandırma (Classification)** ve **Regresyon (Regression)** problemlerine odaklanarak, farklı modellerin başarısını belirli metrikler üzerinden karşılaştırmaktadır.
+Bu repo, BIL475 Örüntü Tanıma dersi kapsamında gerçekleştirilen iki ana çalışmayı içermektedir. Proje; **Sınıflandırma (Classification)** ve **Regresyon (Regression)** problemlerine odaklanarak, farklı modellerin başarısını belirli metrikler üzerinden karşılaştırmaktadır.
 
 ## 👥 Ekip Üyeleri
 * **Üye 1:** Azra Öykü Ulukan
